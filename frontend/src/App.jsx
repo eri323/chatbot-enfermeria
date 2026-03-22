@@ -5,7 +5,23 @@ import Dashboard from "./pages/Dashboard";
 export default function App() {
     const [usuario, setUsuario] = useState(() => {
         const saved = localStorage.getItem("usuario");
-        return saved ? JSON.parse(saved) : null;
+        const token = localStorage.getItem("token");
+
+        if (!saved || !token) return null;
+
+        try {
+            const payload = JSON.parse(atob(token.split(".")[1]));
+            const expirado = payload.exp * 1000 < Date.now();
+            if (expirado) {
+                localStorage.removeItem("usuario");
+                localStorage.removeItem("token");
+                return null;
+            }
+        } catch {
+            return null;
+        }
+
+        return JSON.parse(saved);
     });
 
     const handleLogin = (usuario) => {
