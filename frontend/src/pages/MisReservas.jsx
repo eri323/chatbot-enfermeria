@@ -57,12 +57,14 @@ export default function MisReservas({ usuario }) {
                                     <p className="text-sm text-gray-600">🧪 {r.practice_type}</p>
                                     <p className="text-sm text-gray-600">👥 {r.num_students} estudiantes</p>
                                 </div>
-                                <button
-                                    onClick={() => handleCancelar(r.id)}
-                                    className="bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1 rounded-lg"
-                                >
-                                    Cancelar
-                                </button>
+                                {['admin', 'jefe_enfermeria'].includes(usuario.rol_nombre) && (
+                                    <button
+                                        onClick={() => handleCancelar(r.id)}
+                                        className="bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1 rounded-lg"
+                                    >
+                                        Cancelar
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))}

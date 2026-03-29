@@ -22,7 +22,10 @@ router.post('/registro', async (req, res) => {
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
     try {
-        const result = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
+        const result = await pool.query(
+            'SELECT u.*, r.nombre as rol_nombre FROM usuarios u JOIN roles r ON u.rol_id = r.id WHERE u.email = $1',
+            [email]
+        );
         if (result.rows.length === 0) {
             return res.status(401).json({ success: false, message: 'Usuario no encontrado' });
         }
@@ -32,11 +35,11 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ success: false, message: 'Contraseña incorrecta' });
         }
         const token = jwt.sign(
-            { id: usuario.id, email: usuario.email, rol_id: usuario.rol_id },
+            { id: usuario.id, email: usuario.email, rol_id: usuario.rol_id, rol_nombre: usuario.rol_nombre },
             process.env.JWT_SECRET,
             { expiresIn: '8h' }
         );
-        res.json({ success: true, token, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol_id: usuario.rol_id } });
+        res.json({ success: true, token, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol_id: usuario.rol_id, rol_nombre: usuario.rol_nombre } });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

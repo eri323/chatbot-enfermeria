@@ -16,4 +16,24 @@ const verificarToken = (req, res, next) => {
     }
 };
 
-module.exports = verificarToken;
+const verificarPermiso = (rolesPermitidos) => {
+    return (req, res, next) => {
+        if (!req.usuario) {
+            return res.status(401).json({ error: 'Usuario no autenticado.' });
+        }
+
+        
+        const roles = Array.isArray(rolesPermitidos) ? rolesPermitidos : [rolesPermitidos];
+
+        if (!roles.includes(req.usuario.rol_id)) {
+            return res.status(403).json({ 
+                error: `Acceso denegado. Rol requerido: ${roles.join(', ')}`,
+                tu_rol: req.usuario.rol_nombre
+            });
+        }
+
+        next();
+    };
+};
+
+module.exports = { verificarToken, verificarPermiso };
