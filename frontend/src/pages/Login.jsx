@@ -16,6 +16,7 @@ export default function Login({ onLogin }) {
             localStorage.setItem("usuario", JSON.stringify(res.data.usuario));
             onLogin(res.data.usuario);
         } catch (err) {
+            console.error(err);
             setError("Email o contraseña incorrectos");
         } finally {
             setLoading(false);

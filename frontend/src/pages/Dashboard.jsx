@@ -35,6 +35,17 @@ export default function Dashboard({ usuario, onLogout }) {
                             >
                                 📋 Mis Reservas
                             </button>
+
+                            <button
+                            className={`pb-3 text-sm font-semibold border-b-2 transition ${
+                                    pestanaActiva === "calendario"
+                                        ? "border-blue-600 text-blue-600"
+                                        : "border-transparent text-gray-400 hover:text-gray-600"
+                                }`}>
+
+
+                                🗓️Calendario
+                            </button>
                         </div>
                     </div>
 

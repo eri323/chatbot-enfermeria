@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getReservacionesUsuario, cancelarReservacion } from "../services/api";
 
 export default function MisReservas({ usuario }) {
     const [reservaciones, setReservaciones] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const cargarReservas = async () => {
+    const cargarReservas = useCallback(async () => {
         try {
             const res = await getReservacionesUsuario(usuario.id);
             setReservaciones(res.data.reservaciones);
@@ -14,11 +14,11 @@ export default function MisReservas({ usuario }) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [usuario.id]);
 
     useEffect(() => {
         cargarReservas();
-    }, []);
+    }, [cargarReservas]);
 
     const handleCancelar = async (id) => {
         if (!confirm("¿Estás seguro de cancelar esta reserva?")) return;
@@ -26,6 +26,7 @@ export default function MisReservas({ usuario }) {
             await cancelarReservacion(id, { cancelada_por: usuario.id });
             cargarReservas();
         } catch (err) {
+            console.error(err);
             alert("Error al cancelar la reserva");
         }
     };
