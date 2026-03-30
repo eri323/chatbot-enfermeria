@@ -10,7 +10,7 @@ router.get('/usuario/:id', async (req, res) => {
             `SELECT r.*, l.nombre as laboratorio
              FROM reservaciones r
              JOIN laboratorios l ON r.laboratorio_id = l.id
-             WHERE r.usuario_id = $1 AND r.estado = 'activa'
+             WHERE r.usuario_id = $1
              ORDER BY r.fecha ASC`,
             [req.params.id]
         );

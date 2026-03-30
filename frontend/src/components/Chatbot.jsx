@@ -9,7 +9,7 @@ import {
 
 export default function Chatbot({ usuario }) {
   const [mensajes, setMensajes] = useState(() => {
-    const guardados = localStorage.getItem("chat_mensajes");
+    const guardados = localStorage.getItem(`chat_mensajes_${usuario.id}`);
     return guardados
       ? JSON.parse(guardados)
       : [
@@ -34,7 +34,7 @@ export default function Chatbot({ usuario }) {
   ];
 
   setMensajes(mensajeInicial);
-  localStorage.removeItem("chat_mensajes");
+  localStorage.removeItem(`chat_mensajes_${usuario.id}`);
 };
 
   const HORARIOS = [
@@ -56,8 +56,8 @@ export default function Chatbot({ usuario }) {
   }, [mensajes]);
 
   useEffect(() => {
-    localStorage.setItem("chat_mensajes", JSON.stringify(mensajes));
-  }, [mensajes]);
+    localStorage.setItem(`chat_mensajes_${usuario.id}`, JSON.stringify(mensajes));
+  }, [mensajes, usuario.id]);
 
   const agregarMensaje = (texto, tipo) => {
     setMensajes((prev) => [...prev, { texto, tipo }]);
@@ -308,17 +308,17 @@ export default function Chatbot({ usuario }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-4">
         {mensajes.map((msg, i) => (
           <div
             key={i}
             className={`flex ${msg.tipo === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl text-sm whitespace-pre-line ${
+              className={`max-w-[85%] lg:max-w-md px-5 py-3 rounded-2xl text-sm whitespace-pre-line shadow-sm leading-relaxed ${
                 msg.tipo === "user"
-                  ? "bg-blue-600 text-white rounded-br-none"
-                  : "bg-gray-100 text-gray-800 rounded-bl-none"
+                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-br-sm"
+                  : "bg-white border border-gray-100 text-gray-800 rounded-bl-sm"
               }`}
             >
               {msg.texto}
@@ -327,47 +327,48 @@ export default function Chatbot({ usuario }) {
         ))}
       </div>
 
-      <div className="px-4 py-2 flex gap-2 flex-wrap items-center border-t">
+      <div className="p-3 border-t bg-white border-gray-100 flex flex-wrap gap-2 items-center justify-center sm:justify-start">
         <input
           type="date"
           min={hoy}
           value={fechaSeleccionada}
           onChange={(e) => setFechaSeleccionada(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="border border-gray-200 bg-gray-50 rounded-full px-4 py-1.5 text-xs text-gray-600 font-medium focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white transition"
         />
         <button
           onClick={iniciarReserva}
-          className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1 rounded-lg"
+          className="bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-xs px-4 py-1.5 rounded-full transition-colors"
         >
           Reservar laboratorio
         </button>
+        {['admin', 'jefe_enfermeria'].includes(usuario.rol_nombre) && (
         <button
           onClick={iniciarCancelacion}
-          className="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1 rounded-lg"
+          className="bg-red-50 text-red-700 hover:bg-red-100 font-semibold text-xs px-4 py-1.5 rounded-full transition-colors"
         >
           Cancelar reserva
         </button>
-
+        )}
         <button
           onClick={limpiarChat}
-          className="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1 rounded-lg"
+          className="bg-gray-100 text-gray-600 hover:bg-gray-200 font-semibold text-xs px-4 py-1.5 rounded-full transition-colors ml-auto sm:ml-0"
         >
           Limpiar Chat
         </button>
       </div>
 
-      <div className="px-4 py-3 border-t flex gap-2">
+      <div className="px-4 pb-4 pt-2 bg-white flex gap-2">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={(e) => e.key === "Enter" && handleEnviar()}
           placeholder="Escribe tu mensaje..."
-          className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="flex-1 border border-gray-200 bg-gray-50 rounded-full px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-inner"
         />
         <button
           onClick={handleEnviar}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold"
+          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-3 rounded-full text-sm font-bold shadow-md shadow-blue-500/30 transform transition hover:-translate-y-0.5 focus:outline-none"
         >
           Enviar
         </button>

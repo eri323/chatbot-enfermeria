@@ -24,35 +24,36 @@ export default function Login({ onLogin }) {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
-            <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md">
-                <h1 className="text-3xl font-bold text-blue-700 text-center mb-2">
-                    🏥 Chatbot Enfermería
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center p-4">
+            <div className="bg-white/80 backdrop-blur-md shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-white/50 rounded-3xl p-8 w-full max-w-md">
+                <h1 className="text-3xl font-extrabold text-center mb-2">
+                    <span className="mr-2">🏥</span>
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-700 to-indigo-700">Chatbot Enfermería</span>
                 </h1>
-                <p className="text-center text-gray-500 mb-6">Sistema de Reservas de Laboratorios</p>
+                <p className="text-center text-gray-500 font-medium mb-8">Sistema de Reservas de Laboratorios</p>
 
                 {error && (
-                    <div className="bg-red-100 text-red-700 px-4 py-2 rounded-lg mb-4 text-sm">
-                        {error}
+                    <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-r-lg mb-6 text-sm flex items-center shadow-sm">
+                        <span>⚠️ {error}</span>
                     </div>
                 )}
 
-                <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <div className="mb-5">
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5 ml-1">Email</label>
                     <input
                         type="email"
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        className="w-full bg-white/70 border border-gray-200 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all duration-200 shadow-sm text-sm"
                         placeholder="correo@unisangil.edu.co"
                         value={form.email}
                         onChange={(e) => setForm({ ...form, email: e.target.value })}
                     />
                 </div>
 
-                <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                <div className="mb-8">
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5 ml-1">Contraseña</label>
                     <input
                         type="password"
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        className="w-full bg-white/70 border border-gray-200 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all duration-200 shadow-sm text-sm"
                         placeholder="••••••••"
                         value={form.password}
                         onChange={(e) => setForm({ ...form, password: e.target.value })}
@@ -62,7 +63,7 @@ export default function Login({ onLogin }) {
                 <button
                     onClick={handleSubmit}
                     disabled={loading}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition duration-200"
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 rounded-2xl transition duration-300 shadow-lg shadow-blue-500/30 transform hover:-translate-y-0.5"
                 >
                     {loading ? "Iniciando sesión..." : "Iniciar sesión"}
                 </button>
