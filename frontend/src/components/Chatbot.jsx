@@ -3,7 +3,6 @@ import {
   getLaboratorios,
   verificarDisponibilidad,
   crearReservacion,
-  cancelarReservacion,
   verificarFestivo,
 } from "../services/api";
 
@@ -134,11 +133,6 @@ export default function Chatbot({ usuario }) {
     setEstado({ paso: "reserva_lab", datos: { fecha: fechaSeleccionada } });
   };
 
-  const iniciarCancelacion = () => {
-    agregarMensaje("¿Cuál es el ID de la reserva que deseas cancelar?", "bot");
-    setEstado({ paso: "cancelar_id", datos: {} });
-  };
-
   const manejarPaso = async (mensaje) => {
     const { paso, datos } = estado;
 
@@ -256,24 +250,6 @@ export default function Chatbot({ usuario }) {
         agregarMensaje("Error al crear la reserva.", "bot");
       }
       setEstado({ paso: "ninguno", datos: {} });
-    } else if (paso === "cancelar_id") {
-      try {
-        const res = await cancelarReservacion(mensaje, {
-          cancelada_por: usuario.id,
-        });
-        if (res.data.success) {
-          agregarMensaje(
-            `✅ Reserva #${mensaje} cancelada exitosamente.`,
-            "bot",
-          );
-        } else {
-          agregarMensaje("No se encontró esa reserva.", "bot");
-        }
-      } catch (err) {
-        console.error(err);
-        agregarMensaje("Error al cancelar la reserva.", "bot");
-      }
-      setEstado({ paso: "ninguno", datos: {} });
     } else {
       const msg = mensaje.toLowerCase();
       if (msg.includes("laboratorio") || msg.includes("labs")) {
@@ -292,7 +268,7 @@ export default function Chatbot({ usuario }) {
         );
       } else {
         agregarMensaje(
-          "Puedes preguntarme sobre:\n• Laboratorios disponibles\n• Consultar disponibilidad\n• Reservar laboratorio\n• Cancelar una reserva",
+          "Puedes preguntarme sobre:\n• Laboratorios disponibles\n• Consultar disponibilidad\n• Reservar laboratorio",
           "bot",
         );
       }
@@ -341,14 +317,7 @@ export default function Chatbot({ usuario }) {
         >
           Reservar laboratorio
         </button>
-        {['admin', 'jefe_enfermeria'].includes(usuario.rol_nombre) && (
-        <button
-          onClick={iniciarCancelacion}
-          className="bg-red-50 text-red-700 hover:bg-red-100 font-semibold text-xs px-4 py-1.5 rounded-full transition-colors"
-        >
-          Cancelar reserva
-        </button>
-        )}
+
         <button
           onClick={limpiarChat}
           className="bg-gray-100 text-gray-600 hover:bg-gray-200 font-semibold text-xs px-4 py-1.5 rounded-full transition-colors ml-auto sm:ml-0"
