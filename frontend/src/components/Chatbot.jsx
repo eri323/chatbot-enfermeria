@@ -75,8 +75,8 @@ export default function Chatbot({ usuario }) {
     localStorage.setItem(`chat_fecha_${usuario.id}`, fechaSeleccionada);
   }, [fechaSeleccionada, usuario.id]);
 
-  const agregarMensaje = (texto, tipo, opciones = null) => {
-    setMensajes((prev) => [...prev, { texto, tipo, opciones }]);
+  const agregarMensaje = (texto, tipo, opciones = null, datosReserva = null) => {
+    setMensajes((prev) => [...prev, { texto, tipo, opciones, datosReserva }]);
   };
 
   const esFindeSemana = (fecha) => {
@@ -258,8 +258,17 @@ export default function Chatbot({ usuario }) {
         });
         if (res.data.success) {
           agregarMensaje(
-            `✅ ¡Reserva confirmada!\n• ID de reserva: #${res.data.reservacion.id}\n• Laboratorio: ${datos.lab.nombre}\n• Fecha: ${datos.fecha}\n• Horario: ${datos.hora_inicio} - ${datos.hora_fin}\n• Práctica: ${datos.practice_type}\n• Estudiantes: ${num_students}\n\n📌 Guarda tu ID para cancelar la reserva.`,
+            "🎉 ¡Tu reserva se ha creado exitosamente!",
             "bot",
+            null,
+            {
+              id: res.data.reservacion.id,
+              laboratorio: datos.lab.nombre,
+              fecha: datos.fecha,
+              horario: `${datos.hora_inicio} - ${datos.hora_fin}`,
+              practica: datos.practice_type,
+              estudiantes: num_students
+            }
           );
         }
       } catch (err) {
@@ -304,6 +313,9 @@ export default function Chatbot({ usuario }) {
     manejarPaso(opcion);
   };
 
+  const ultimoMensaje = mensajes[mensajes.length - 1];
+  const esperandoOpcion = ultimoMensaje?.tipo === "bot" && ultimoMensaje?.opciones?.length > 0;
+
   return (
     <div className="flex flex-col h-full">
       <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -320,6 +332,40 @@ export default function Chatbot({ usuario }) {
               }`}
             >
               {msg.texto}
+              {msg.datosReserva && (
+                <div className="mt-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100 shadow-sm w-full">
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-green-200">
+                    <span className="text-xl">✅</span>
+                    <h4 className="font-bold text-green-800 text-sm">Detalles de tu reserva</h4>
+                  </div>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between items-center bg-white p-2 rounded-lg shadow-sm border border-green-50">
+                      <span className="text-gray-500 font-semibold">ID Reserva</span>
+                      <span className="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">#{msg.datosReserva.id}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-white p-2 rounded-lg shadow-sm border border-green-50">
+                      <span className="text-gray-500 font-semibold">Laboratorio</span>
+                      <span className="font-medium text-gray-800 text-right">{msg.datosReserva.laboratorio}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-white p-2 rounded-lg shadow-sm border border-green-50">
+                      <span className="text-gray-500 font-semibold">Fecha</span>
+                      <span className="font-medium text-gray-800">{msg.datosReserva.fecha}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-white p-2 rounded-lg shadow-sm border border-green-50">
+                      <span className="text-gray-500 font-semibold">Horario</span>
+                      <span className="font-medium text-gray-800">{msg.datosReserva.horario}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-white p-2 rounded-lg shadow-sm border border-green-50">
+                      <span className="text-gray-500 font-semibold">Práctica</span>
+                      <span className="font-medium text-gray-800 text-right truncate max-w-[120px]" title={msg.datosReserva.practica}>{msg.datosReserva.practica}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-white p-2 rounded-lg shadow-sm border border-green-50">
+                      <span className="text-gray-500 font-semibold">Estudiantes</span>
+                      <span className="font-medium text-gray-800">{msg.datosReserva.estudiantes}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
               {msg.opciones && msg.opciones.length > 0 && (
                 <div className="mt-3 flex flex-col gap-2">
                   {msg.opciones.map((opc, idx) => {
@@ -377,13 +423,15 @@ export default function Chatbot({ usuario }) {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyPress={(e) => e.key === "Enter" && handleEnviar()}
-          placeholder="Escribe tu mensaje..."
-          className="flex-1 border border-gray-200 bg-gray-50 rounded-full px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-inner"
+          onKeyPress={(e) => e.key === "Enter" && !esperandoOpcion && handleEnviar()}
+          placeholder={esperandoOpcion ? "Por favor selecciona una opción arriba..." : "Escribe tu mensaje..."}
+          disabled={esperandoOpcion}
+          className={`flex-1 border border-gray-200 rounded-full px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-inner ${esperandoOpcion ? "bg-gray-100 cursor-not-allowed opacity-70" : "bg-gray-50"}`}
         />
         <button
           onClick={handleEnviar}
-          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-3 rounded-full text-sm font-bold shadow-md shadow-blue-500/30 transform transition hover:-translate-y-0.5 focus:outline-none"
+          disabled={esperandoOpcion}
+          className={`px-6 py-3 rounded-full text-sm font-bold shadow-md transform transition focus:outline-none ${esperandoOpcion ? "bg-gray-400 text-gray-100 cursor-not-allowed shadow-none" : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/30 hover:-translate-y-0.5"}`}
         >
           Enviar
         </button>
