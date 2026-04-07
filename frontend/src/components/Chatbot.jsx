@@ -14,26 +14,35 @@ export default function Chatbot({ usuario }) {
       : [
           {
             texto:
-              "¡Hola! Soy el asistente de reservas de laboratorios. ¿En qué te puedo ayudar?",
+              `¡Hola${usuario?.nombre ? ' ' + usuario.nombre : ''}! Soy el asistente de reservas de laboratorios.\n\nPara iniciar, por favor selecciona una fecha en el selector resaltado en la parte inferior y luego haz clic en "Reservar laboratorio".\n\n¿En qué te puedo ayudar?`,
             tipo: "bot",
           },
         ];
   });
   const [input, setInput] = useState("");
   const [laboratorios, setLaboratorios] = useState([]);
-  const [estado, setEstado] = useState({ paso: "ninguno", datos: {} });
-  const [fechaSeleccionada, setFechaSeleccionada] = useState("");
+  const [estado, setEstado] = useState(() => {
+    const guardado = localStorage.getItem(`chat_estado_${usuario.id}`);
+    return guardado ? JSON.parse(guardado) : { paso: "ninguno", datos: {} };
+  });
+  const [fechaSeleccionada, setFechaSeleccionada] = useState(() => {
+    return localStorage.getItem(`chat_fecha_${usuario.id}`) || "";
+  });
   const chatRef = useRef(null);
   const limpiarChat = () => {
   const mensajeInicial = [
     {
-      texto: "¡Hola! Soy el asistente de reservas de laboratorios. ¿En qué te puedo ayudar?",
+      texto: `¡Hola${usuario?.nombre ? ' ' + usuario.nombre : ''}! Soy el asistente de reservas de laboratorios.\n\nPara iniciar, por favor selecciona una fecha en el selector resaltado en la parte inferior y luego haz clic en "Reservar laboratorio".\n\n¿En qué te puedo ayudar?`,
       tipo: "bot",
     },
   ];
 
   setMensajes(mensajeInicial);
+  setEstado({ paso: "ninguno", datos: {} });
+  setFechaSeleccionada("");
   localStorage.removeItem(`chat_mensajes_${usuario.id}`);
+  localStorage.removeItem(`chat_estado_${usuario.id}`);
+  localStorage.removeItem(`chat_fecha_${usuario.id}`);
 };
 
   const HORARIOS = [
@@ -58,8 +67,16 @@ export default function Chatbot({ usuario }) {
     localStorage.setItem(`chat_mensajes_${usuario.id}`, JSON.stringify(mensajes));
   }, [mensajes, usuario.id]);
 
-  const agregarMensaje = (texto, tipo) => {
-    setMensajes((prev) => [...prev, { texto, tipo }]);
+  useEffect(() => {
+    localStorage.setItem(`chat_estado_${usuario.id}`, JSON.stringify(estado));
+  }, [estado, usuario.id]);
+
+  useEffect(() => {
+    localStorage.setItem(`chat_fecha_${usuario.id}`, fechaSeleccionada);
+  }, [fechaSeleccionada, usuario.id]);
+
+  const agregarMensaje = (texto, tipo, opciones = null) => {
+    setMensajes((prev) => [...prev, { texto, tipo, opciones }]);
   };
 
   const esFindeSemana = (fecha) => {
@@ -125,10 +142,11 @@ export default function Chatbot({ usuario }) {
       console.error(err);
     }
 
-    const lista = laboratorios.map((l) => `• ${l.nombre}`).join("\n");
+    const opcionesLabs = laboratorios.map((l) => l.nombre);
     agregarMensaje(
-      `📅 Fecha seleccionada: ${fechaSeleccionada}\n¿Qué laboratorio quieres reservar?\n${lista}`,
+      `📅 Fecha seleccionada: ${fechaSeleccionada}\n¿Qué laboratorio quieres reservar?`,
       "bot",
+      opcionesLabs
     );
     setEstado({ paso: "reserva_lab", datos: { fecha: fechaSeleccionada } });
   };
@@ -188,12 +206,11 @@ export default function Chatbot({ usuario }) {
         setEstado({ paso: "ninguno", datos: {} });
         return;
       }
-      const texto = horariosDisponibles
-        .map((h) => `• ${h.inicio} - ${h.fin}`)
-        .join("\n");
+      const opcionesHorarios = horariosDisponibles.map((h) => `${h.inicio} - ${h.fin}`);
       agregarMensaje(
-        `Horarios disponibles para ${lab.nombre}:\n${texto}\n\n¿Qué horario prefieres? (ej: 08:00-10:00)`,
+        `Horarios disponibles para ${lab.nombre}:\n\n¿Qué horario prefieres?`,
         "bot",
+        opcionesHorarios
       );
       setEstado({ paso: "reserva_horario", datos: { ...datos, lab } });
     } else if (paso === "reserva_horario") {
@@ -282,6 +299,11 @@ export default function Chatbot({ usuario }) {
     setInput("");
   };
 
+  const handleOpcionClick = (opcion) => {
+    agregarMensaje(opcion, "user");
+    manejarPaso(opcion);
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -298,29 +320,53 @@ export default function Chatbot({ usuario }) {
               }`}
             >
               {msg.texto}
+              {msg.opciones && msg.opciones.length > 0 && (
+                <div className="mt-3 flex flex-col gap-2">
+                  {msg.opciones.map((opc, idx) => {
+                    const isLastMsg = i === mensajes.length - 1;
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => handleOpcionClick(opc)}
+                        disabled={!isLastMsg}
+                        className={`text-sm px-4 py-2 rounded-xl font-medium transition-all text-left border ${
+                          isLastMsg
+                            ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-300 shadow-sm"
+                            : "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed opacity-70"
+                        }`}
+                      >
+                        {opc}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         ))}
       </div>
 
-      <div className="p-3 border-t bg-white border-gray-100 flex flex-wrap gap-2 items-center justify-center sm:justify-start">
-        <input
-          type="date"
-          min={hoy}
-          value={fechaSeleccionada}
-          onChange={(e) => setFechaSeleccionada(e.target.value)}
-          className="border border-gray-200 bg-gray-50 rounded-full px-4 py-1.5 text-xs text-gray-600 font-medium focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white transition"
-        />
+      <div className="p-3 border-t bg-white border-gray-100 flex flex-wrap gap-3 items-center justify-center sm:justify-start">
+        <div className="flex items-center gap-2 bg-blue-50/60 p-1.5 rounded-full border border-blue-200 shadow-sm ring-2 ring-blue-100/50">
+          <span className="text-[11px] font-bold text-blue-800 pl-3 uppercase tracking-wide">📅 Fecha:</span>
+          <input
+            type="date"
+            min={hoy}
+            value={fechaSeleccionada}
+            onChange={(e) => setFechaSeleccionada(e.target.value)}
+            className="border-none bg-white rounded-full px-3 py-1.5 text-xs text-gray-800 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm cursor-pointer"
+          />
+        </div>
         <button
           onClick={iniciarReserva}
-          className="bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-xs px-4 py-1.5 rounded-full transition-colors"
+          className="bg-blue-100 text-blue-800 hover:bg-blue-200 font-bold text-xs px-5 py-2.5 rounded-full transition-colors shadow-sm"
         >
           Reservar laboratorio
         </button>
 
         <button
           onClick={limpiarChat}
-          className="bg-gray-100 text-gray-600 hover:bg-gray-200 font-semibold text-xs px-4 py-1.5 rounded-full transition-colors ml-auto sm:ml-0"
+          className="bg-gray-100 text-gray-600 hover:bg-gray-200 font-semibold text-xs px-4 py-2.5 rounded-full transition-colors ml-auto sm:ml-0"
         >
           Limpiar Chat
         </button>
