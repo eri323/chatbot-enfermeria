@@ -10,13 +10,17 @@ app.use(express.json());
 
 const authRoutes = require('./routes/auth');
 const laboratoriosRoutes = require('./routes/laboratorios');
+
 const reservacionesRoutes = require('./routes/reservaciones');
 const festivosRoutes = require('./routes/festivos');
+const calendarioRoutes = require('./routes/calendario');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/laboratorios', laboratoriosRoutes);
+
 app.use('/api/reservaciones', reservacionesRoutes);
 app.use('/api/festivos', festivosRoutes);
+app.use('/api/calendario', calendarioRoutes);
 
 
 app.get('/', (req, res) => {
