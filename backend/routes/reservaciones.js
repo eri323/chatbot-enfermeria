@@ -8,10 +8,10 @@ router.get('/usuario/:id', async (req, res) => {
     try {
         const result = await pool.query(
             `SELECT r.*, l.nombre as laboratorio
-             FROM reservaciones r
-             JOIN laboratorios l ON r.laboratorio_id = l.id
-             WHERE r.usuario_id = $1
-             ORDER BY r.fecha ASC`,
+            FROM reservaciones r
+            JOIN laboratorios l ON r.laboratorio_id = l.id
+            WHERE r.usuario_id = $1
+            ORDER BY r.fecha ASC`,
             [req.params.id]
         );
         res.json({ success: true, reservaciones: result.rows });
@@ -27,9 +27,9 @@ router.get('/disponibilidad',
         try {
             const result = await pool.query(
                 `SELECT * FROM reservaciones 
-                 WHERE laboratorio_id = $1 AND fecha = $2 AND estado = 'activa'
-                 AND ((hora_inicio <= $3 AND hora_fin > $3)
-                 OR (hora_inicio < $4 AND hora_fin > $3))`,
+                WHERE laboratorio_id = $1 AND fecha = $2 AND estado = 'activa'
+                AND ((hora_inicio <= $3 AND hora_fin > $3)
+                OR (hora_inicio < $4 AND hora_fin > $3))`,
                 [laboratorio_id, fecha, hora_inicio, hora_fin]
             );
             res.json({ success: true, disponible: result.rows.length === 0 });
@@ -46,10 +46,10 @@ router.get('/',
         try {
             const result = await pool.query(
                 `SELECT r.*, l.nombre as laboratorio, u.nombre as usuario
-                 FROM reservaciones r
-                 JOIN laboratorios l ON r.laboratorio_id = l.id
-                 JOIN usuarios u ON r.usuario_id = u.id
-                 ORDER BY r.fecha DESC`
+                FROM reservaciones r
+                JOIN laboratorios l ON r.laboratorio_id = l.id
+                JOIN usuarios u ON r.usuario_id = u.id
+                ORDER BY r.fecha DESC`
             );
             res.json({ success: true, reservaciones: result.rows });
         } catch (error) {
