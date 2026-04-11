@@ -76,7 +76,6 @@ export default function MisReservas({ usuario }) {
                 <p className="text-gray-500 text-sm">No hay reservas registradas.</p>
             ) : (
                 <div className="space-y-6">
-                   
                     <div>
                         <h3 className="text-lg font-semibold text-green-700 mb-3 flex items-center gap-2">
                             🟢 Reservas Activas ({activas.length})
@@ -89,8 +88,6 @@ export default function MisReservas({ usuario }) {
                             </div>
                         )}
                     </div>
-
-                  
                     <div>
                         <h3 className="text-lg font-semibold text-red-700 mb-3 flex items-center gap-2 pt-4 border-t">
                             🔴 Reservas Canceladas ({canceladas.length})

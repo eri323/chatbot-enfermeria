@@ -28,5 +28,6 @@ export const verificarDisponibilidad = (params) => API.get('/reservaciones/dispo
 
 export const getFestivos = () => API.get('/festivos');
 export const verificarFestivo = (fecha) => API.get(`/festivos/verificar/${fecha}`);
+export const getCalendario = () => API.get('/calendario');
 
 export const getReservacionesUsuario = (id) => API.get(`/reservaciones/usuario/${id}`);
