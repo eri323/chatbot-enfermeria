@@ -21,7 +21,7 @@ router.get('/usuario/:id', async (req, res) => {
 });
 
 router.get('/disponibilidad', 
-    verificarPermiso([2, 3]),  
+    verificarPermiso([1, 2, 3]),  
     async (req, res) => {
         const { laboratorio_id, fecha, hora_inicio, hora_fin } = req.query;
         try {
@@ -60,7 +60,7 @@ router.get('/',
 
 
 router.post('/', 
-    verificarPermiso([2, 3]),  
+    verificarPermiso([1, 2, 3]),  
     async (req, res) => {
         const { laboratorio_id, usuario_id, fecha, hora_inicio, hora_fin, practice_type, materials, num_students } = req.body;
         try {
