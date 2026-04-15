@@ -94,11 +94,15 @@ export default function Calendario() {
   const [selectedLab, setSelectedLab] = useState("");
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  useEffect(() => {
-    // Cargar historial de reservas
+  const fetchReservas = () => {
     getCalendario()
       .then((res) => setReservasDb(res.data || []))
       .catch((err) => console.error("Error cargando reservas:", err));
+  };
+
+  useEffect(() => {
+    // Cargar historial de reservas
+    fetchReservas();
 
     // Cargar laboratorios y establecer valor por defecto
     getLaboratorios()
@@ -261,6 +265,14 @@ export default function Calendario() {
               </option>
             ))}
           </select>
+          <button
+            onClick={fetchReservas}
+            className="flex items-center gap-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm border border-indigo-100 ml-auto focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            title="Actualizar Reservas"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            <span className="hidden sm:inline">Actualizar</span>
+          </button>
         </div>
       )}
 
@@ -281,6 +293,10 @@ export default function Calendario() {
           min={new Date(0, 0, 0, 8, 0, 0)}
           max={new Date(0, 0, 0, 18, 0, 0)}
           eventPropGetter={eventPropGetter}
+          formats={{
+            timeGutterFormat: "HH:mm",
+            eventTimeRangeFormat: ({ start, end }) => `${format(start, "HH:mm")} - ${format(end, "HH:mm")}`
+          }}
           components={{
             toolbar: CustomToolbar
           }}
