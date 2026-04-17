@@ -2,6 +2,23 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const { verificarToken, verificarPermiso } = require('../middleware/auth');
+const multer = require('multer');
+const path = require('path');
+
+
+// Configuración de almacenamiento para multer
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/estudiantes');
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({ storage: storage });
+
 
 router.use(verificarToken); 
 router.get('/usuario/:id', async (req, res) => {
@@ -61,20 +78,52 @@ router.get('/',
 
 router.post('/', 
     verificarPermiso([1, 2, 3]),  
+    upload.single('lista_estudiantes'),
     async (req, res) => {
         const { laboratorio_id, usuario_id, fecha, hora_inicio, hora_fin, practice_type, materials, num_students } = req.body;
+        const studentListPath = req.file ? req.file.filename : null;
+
+        const client = await pool.connect();
         try {
-            const result = await pool.query(
-                `INSERT INTO reservaciones (laboratorio_id, usuario_id, fecha, hora_inicio, hora_fin, practice_type, materials, num_students)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-                [laboratorio_id, usuario_id, fecha, hora_inicio, hora_fin, practice_type, materials, num_students]
+            await client.query('BEGIN');
+            
+            // 1. Verificar disponibilidad nuevamente (Prevención de race condition)
+            const checkResult = await client.query(
+                `SELECT * FROM reservaciones 
+                WHERE laboratorio_id = $1 AND fecha = $2 AND estado = 'activa'
+                AND ((hora_inicio <= $3 AND hora_fin > $3)
+                OR (hora_inicio < $4 AND hora_fin > $3))
+                FOR UPDATE`,
+                [laboratorio_id, fecha, hora_inicio, hora_fin]
             );
+
+            if (checkResult.rows.length > 0) {
+                await client.query('ROLLBACK');
+                return res.status(409).json({ 
+                    success: false, 
+                    message: 'Lo sentimos, este horario ya no está disponible. Alguien más acaba de reservarlo.' 
+                });
+            }
+
+            // 2. Insertar si está disponible
+            const result = await client.query(
+                `INSERT INTO reservaciones (laboratorio_id, usuario_id, fecha, hora_inicio, hora_fin, practice_type, materials, num_students, lista_estudiantes)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+                [laboratorio_id, usuario_id, fecha, hora_inicio, hora_fin, practice_type, materials, num_students || null, studentListPath]
+            );
+            
+            await client.query('COMMIT');
             res.json({ success: true, reservacion: result.rows[0] });
         } catch (error) {
+            await client.query('ROLLBACK');
+            console.error('Error al crear reservación:', error);
             res.status(500).json({ success: false, message: error.message });
+        } finally {
+            client.release();
         }
     }
 );
+
 
 router.put('/:id/cancelar', 
     verificarPermiso([1, 3]), 

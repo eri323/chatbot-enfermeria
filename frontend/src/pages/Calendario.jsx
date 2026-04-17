@@ -14,6 +14,7 @@ import {
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import es from "date-fns/locale/es";
 import { getCalendario, getLaboratorios, getFestivos } from "../services/api";
+import { supabase } from "../services/supabase";
 
 const locales = {
   es: es,
@@ -128,6 +129,26 @@ export default function Calendario() {
         }
       })
       .catch((err) => console.warn("Festivos no disponibles:", err));
+
+    // SUSCRIPCIÓN EN TIEMPO REAL
+    const channel = supabase
+      .channel("reservaciones_cambios")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reservaciones" },
+        (payload) => {
+          console.log("🔔 Cambio detectado en tiempo real:", payload);
+          fetchReservas();
+        }
+      )
+      .subscribe((status, err) => {
+        console.log("📡 Estado de suscripción Realtime:", status);
+        if (err) console.error("❌ Error en suscripción Realtime:", err);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const events = useMemo(() => {
@@ -265,14 +286,6 @@ export default function Calendario() {
               </option>
             ))}
           </select>
-          <button
-            onClick={fetchReservas}
-            className="flex items-center gap-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm border border-indigo-100 ml-auto focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            title="Actualizar Reservas"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-            <span className="hidden sm:inline">Actualizar</span>
-          </button>
         </div>
       )}
 

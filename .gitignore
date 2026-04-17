@@ -58,3 +58,10 @@ $RECYCLE.BIN/
 backend/dist/
 dist/
 build/
+
+# ========================
+# Temporales y Scratch
+# ========================
+scratch/
+backend/uploads/estudiantes/*
+!backend/uploads/estudiantes/.gitkeep

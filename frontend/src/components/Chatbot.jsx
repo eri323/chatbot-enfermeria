@@ -5,6 +5,7 @@ import {
   crearReservacion,
   verificarFestivo,
 } from "../services/api";
+import { supabase } from "../services/supabase";
 
 export default function Chatbot({ usuario }) {
   const [mensajes, setMensajes] = useState(() => {
@@ -55,6 +56,10 @@ export default function Chatbot({ usuario }) {
 
   const hoy = new Date().toISOString().split("T")[0];
 
+  const agregarMensaje = (texto, tipo, opciones = null, datosReserva = null) => {
+    setMensajes((prev) => [...prev, { texto, tipo, opciones, datosReserva }]);
+  };
+
   useEffect(() => {
     getLaboratorios().then((res) => setLaboratorios(res.data.laboratorios));
   }, []);
@@ -75,9 +80,27 @@ export default function Chatbot({ usuario }) {
     localStorage.setItem(`chat_fecha_${usuario.id}`, fechaSeleccionada);
   }, [fechaSeleccionada, usuario.id]);
 
-  const agregarMensaje = (texto, tipo, opciones = null, datosReserva = null) => {
-    setMensajes((prev) => [...prev, { texto, tipo, opciones, datosReserva }]);
-  };
+  useEffect(() => {
+    // Escuchar cambios en tiempo real para avisar si algo cambia
+    const channel = supabase
+      .channel("chatbot_updates")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "reservaciones" },
+        () => {
+          // Si el usuario está en medio de una reserva, avisamos que hubo cambios
+          if (estado.paso !== "ninguno") {
+            agregarMensaje("📢 Se acaba de confirmar una nueva reserva. Verifica la disponibilidad si el horario que buscas ya no aparece.", "bot");
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [estado.paso, usuario.id]);
+
 
   const esFindeSemana = (fecha) => {
     const dia = new Date(fecha + "T00:00:00").getDay();
@@ -232,12 +255,17 @@ export default function Chatbot({ usuario }) {
       agregarMensaje("¿Qué materiales se usarán?", "bot");
     } else if (paso === "reserva_materiales") {
       setEstado({
-        paso: "reserva_estudiantes",
+        paso: "reserva_estudiantes_archivo",
         datos: { ...datos, materials: mensaje },
       });
-      agregarMensaje("¿Cuántos estudiantes participarán?", "bot");
+      agregarMensaje("Por favor carga el archivo (CSV, PDF o Excel) con la lista de estudiantes para finalizar tu reserva.", "bot");
+    } else if (paso === "reserva_estudiantes_archivo") {
+      // Este paso se maneja ahora a través de handleFileChange
+      return;
     } else if (paso === "reserva_estudiantes") {
+      // Paso antiguo, mantenido por compatibilidad si es necesario, pero redireccionado
       const num_students = parseInt(mensaje);
+
       if (isNaN(num_students) || num_students <= 0) {
         agregarMensaje(
           "Por favor ingresa un número válido de estudiantes.",
@@ -273,7 +301,11 @@ export default function Chatbot({ usuario }) {
         }
       } catch (err) {
         console.error(err);
-        agregarMensaje("Error al crear la reserva.", "bot");
+        if (err.response?.status === 409) {
+          agregarMensaje(`❌ ${err.response.data.message}`, "bot");
+        } else {
+          agregarMensaje("❌ Error al crear la reserva. Por favor intenta de nuevo.", "bot");
+        }
       }
       setEstado({ paso: "ninguno", datos: {} });
     } else {
@@ -311,6 +343,51 @@ export default function Chatbot({ usuario }) {
   const handleOpcionClick = (opcion) => {
     agregarMensaje(opcion, "user");
     manejarPaso(opcion);
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    agregarMensaje(`📄 Archivo seleccionado: ${file.name}`, "user");
+    
+    const formData = new FormData();
+    formData.append("laboratorio_id", estado.datos.lab.id);
+    formData.append("usuario_id", usuario.id);
+    formData.append("fecha", estado.datos.fecha);
+    formData.append("hora_inicio", estado.datos.hora_inicio);
+    formData.append("hora_fin", estado.datos.hora_fin);
+    formData.append("practice_type", estado.datos.practice_type);
+    formData.append("materials", estado.datos.materials);
+    formData.append("lista_estudiantes", file);
+    // num_students es opcional ahora
+
+    try {
+      const res = await crearReservacion(formData);
+      if (res.data.success) {
+        agregarMensaje(
+          "🎉 ¡Tu reserva se ha creado exitosamente!",
+          "bot",
+          null,
+          {
+            id: res.data.reservacion.id,
+            laboratorio: estado.datos.lab.nombre,
+            fecha: estado.datos.fecha,
+            horario: `${estado.datos.hora_inicio} - ${estado.datos.hora_fin}`,
+            practica: estado.datos.practice_type,
+            estudiantes: "Lista adjunta"
+          }
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      if (err.response?.status === 409) {
+        agregarMensaje(`❌ ${err.response.data.message}`, "bot");
+      } else {
+        agregarMensaje("❌ Error al crear la reserva. Por favor intenta de nuevo.", "bot");
+      }
+    }
+    setEstado({ paso: "ninguno", datos: {} });
   };
 
   const ultimoMensaje = mensajes[mensajes.length - 1];
@@ -419,15 +496,34 @@ export default function Chatbot({ usuario }) {
       </div>
 
       <div className="px-4 pb-4 pt-2 bg-white flex gap-2">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyPress={(e) => e.key === "Enter" && !esperandoOpcion && handleEnviar()}
-          placeholder={esperandoOpcion ? "Por favor selecciona una opción arriba..." : "Escribe tu mensaje..."}
-          disabled={esperandoOpcion}
-          className={`flex-1 border border-gray-200 rounded-full px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-inner ${esperandoOpcion ? "bg-gray-100 cursor-not-allowed opacity-70" : "bg-gray-50"}`}
-        />
+        {estado.paso === "reserva_estudiantes_archivo" ? (
+          <div className="flex-1 flex gap-2">
+            <input
+              type="file"
+              id="file-upload"
+              className="hidden"
+              onChange={handleFileChange}
+              accept=".csv,.pdf,.xlsx,.xls"
+            />
+            <label
+              htmlFor="file-upload"
+              className="flex-1 bg-blue-50 text-blue-700 border-2 border-dashed border-blue-200 rounded-2xl px-5 py-3 text-sm font-bold cursor-pointer hover:bg-blue-100 hover:border-blue-300 transition-all flex items-center justify-center gap-3 shadow-sm"
+            >
+              <span className="text-xl">📎</span> 
+              <span>Subir lista de estudiantes</span>
+            </label>
+          </div>
+        ) : (
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={(e) => e.key === "Enter" && !esperandoOpcion && handleEnviar()}
+            placeholder={esperandoOpcion ? "Por favor selecciona una opción arriba..." : "Escribe tu mensaje..."}
+            disabled={esperandoOpcion}
+            className={`flex-1 border border-gray-200 rounded-full px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-inner ${esperandoOpcion ? "bg-gray-100 cursor-not-allowed opacity-70" : "bg-gray-50"}`}
+          />
+        )}
         <button
           onClick={handleEnviar}
           disabled={esperandoOpcion}
