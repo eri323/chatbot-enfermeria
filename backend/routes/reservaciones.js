@@ -4,20 +4,14 @@ const pool = require('../db');
 const { verificarToken, verificarPermiso } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
+const supabase = require('../supabase');
 
 
-// Configuración de almacenamiento para multer
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/estudiantes');
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
 
+// Configuración de almacenamiento para multer (en memoria)
+const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
+
 
 
 router.use(verificarToken); 
@@ -81,12 +75,33 @@ router.post('/',
     upload.single('lista_estudiantes'),
     async (req, res) => {
         const { laboratorio_id, usuario_id, fecha, hora_inicio, hora_fin, practice_type, materials, num_students } = req.body;
-        const studentListPath = req.file ? req.file.filename : null;
-
+        
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
             
+            // Subir a Supabase Storage si hay un archivo
+            let studentListUrl = null;
+            if (req.file) {
+                const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+                const fileName = `${req.file.fieldname}-${uniqueSuffix}${path.extname(req.file.originalname)}`;
+                
+                const { error: uploadError } = await supabase.storage
+                    .from('estudiantes')
+                    .upload(fileName, req.file.buffer, {
+                        contentType: req.file.mimetype,
+                        upsert: false
+                    });
+
+                if (uploadError) throw uploadError;
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('estudiantes')
+                    .getPublicUrl(fileName);
+                
+                studentListUrl = publicUrl;
+            }
+
             // 1. Verificar disponibilidad nuevamente (Prevención de race condition)
             const checkResult = await client.query(
                 `SELECT * FROM reservaciones 
@@ -109,8 +124,9 @@ router.post('/',
             const result = await client.query(
                 `INSERT INTO reservaciones (laboratorio_id, usuario_id, fecha, hora_inicio, hora_fin, practice_type, materials, num_students, lista_estudiantes)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-                [laboratorio_id, usuario_id, fecha, hora_inicio, hora_fin, practice_type, materials, num_students || null, studentListPath]
+                [laboratorio_id, usuario_id, fecha, hora_inicio, hora_fin, practice_type, materials, num_students || null, studentListUrl]
             );
+
             
             await client.query('COMMIT');
             res.json({ success: true, reservacion: result.rows[0] });
