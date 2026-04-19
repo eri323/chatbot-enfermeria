@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import toast from "react-hot-toast";
 import {
   getLaboratorios,
   verificarDisponibilidad,
@@ -80,16 +81,21 @@ export default function Chatbot({ usuario }) {
     localStorage.setItem(`chat_fecha_${usuario.id}`, fechaSeleccionada);
   }, [fechaSeleccionada, usuario.id]);
 
+  const estadoRef = useRef(estado);
+
   useEffect(() => {
-    // Escuchar cambios en tiempo real para avisar si algo cambia
+    estadoRef.current = estado;
+  }, [estado]);
+
+  useEffect(() => {
+    // Escuchar cambios en tiempo real para avisar si algo cambia usando estadoRef
     const channel = supabase
       .channel("chatbot_updates")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "reservaciones" },
         () => {
-          // Si el usuario está en medio de una reserva, avisamos que hubo cambios
-          if (estado.paso !== "ninguno") {
+          if (estadoRef.current.paso !== "ninguno") {
             agregarMensaje("📢 Se acaba de confirmar una nueva reserva. Verifica la disponibilidad si el horario que buscas ya no aparece.", "bot");
           }
         }
@@ -99,7 +105,7 @@ export default function Chatbot({ usuario }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [estado.paso, usuario.id]);
+  }, []);
 
 
   const esFindeSemana = (fecha) => {
@@ -174,163 +180,86 @@ export default function Chatbot({ usuario }) {
     setEstado({ paso: "reserva_lab", datos: { fecha: fechaSeleccionada } });
   };
 
-  const manejarPaso = async (mensaje) => {
-    const { paso, datos } = estado;
-
-    if (paso === "consulta_lab") {
-      const lab = laboratorios.find(
-        (l) => l.nombre.toLowerCase() === mensaje.toLowerCase(),
-      );
-      if (!lab) {
-        agregarMensaje("No encontré ese laboratorio. Intenta de nuevo.", "bot");
-        return;
-      }
+  const pasosHandler = {
+    consulta_lab: async (mensaje, datos) => {
+      const lab = laboratorios.find((l) => l.nombre.toLowerCase() === mensaje.toLowerCase());
+      if (!lab) return agregarMensaje("No encontré ese laboratorio. Intenta de nuevo.", "bot");
       const horariosDisponibles = [];
       for (const h of HORARIOS) {
-        const res = await verificarDisponibilidad({
-          laboratorio_id: lab.id,
-          fecha: datos.fecha,
-          hora_inicio: h.inicio,
-          hora_fin: h.fin,
-        });
+        const res = await verificarDisponibilidad({ laboratorio_id: lab.id, fecha: datos.fecha, hora_inicio: h.inicio, hora_fin: h.fin });
         horariosDisponibles.push({ ...h, disponible: res.data.disponible });
       }
-      const texto = horariosDisponibles
-        .map((h) => `${h.disponible ? "✅" : "❌"} ${h.inicio} - ${h.fin}`)
-        .join("\n");
-      agregarMensaje(
-        `Disponibilidad de ${lab.nombre} el ${datos.fecha}:\n${texto}`,
-        "bot",
-      );
+      const texto = horariosDisponibles.map((h) => `${h.disponible ? "✅" : "❌"} ${h.inicio} - ${h.fin}`).join("\n");
+      agregarMensaje(`Disponibilidad de ${lab.nombre} el ${datos.fecha}:\n${texto}`, "bot");
       setEstado({ paso: "ninguno", datos: {} });
-    } else if (paso === "reserva_lab") {
-      const lab = laboratorios.find(
-        (l) => l.nombre.toLowerCase() === mensaje.toLowerCase(),
-      );
-      if (!lab) {
-        agregarMensaje("No encontré ese laboratorio. Intenta de nuevo.", "bot");
-        return;
-      }
+    },
+    reserva_lab: async (mensaje, datos) => {
+      const lab = laboratorios.find((l) => l.nombre.toLowerCase() === mensaje.toLowerCase());
+      if (!lab) return agregarMensaje("No encontré ese laboratorio. Intenta de nuevo.", "bot");
       const horariosDisponibles = [];
       for (const h of HORARIOS) {
-        const res = await verificarDisponibilidad({
-          laboratorio_id: lab.id,
-          fecha: datos.fecha,
-          hora_inicio: h.inicio,
-          hora_fin: h.fin,
-        });
+        const res = await verificarDisponibilidad({ laboratorio_id: lab.id, fecha: datos.fecha, hora_inicio: h.inicio, hora_fin: h.fin });
         if (res.data.disponible) horariosDisponibles.push(h);
       }
       if (horariosDisponibles.length === 0) {
-        agregarMensaje(
-          `❌ No hay horarios disponibles para ${lab.nombre} el ${datos.fecha}.`,
-          "bot",
-        );
-        setEstado({ paso: "ninguno", datos: {} });
-        return;
+        agregarMensaje(`❌ No hay horarios disponibles para ${lab.nombre} el ${datos.fecha}.`, "bot");
+        return setEstado({ paso: "ninguno", datos: {} });
       }
       const opcionesHorarios = horariosDisponibles.map((h) => `${h.inicio} - ${h.fin}`);
-      agregarMensaje(
-        `Horarios disponibles para ${lab.nombre}:\n\n¿Qué horario prefieres?`,
-        "bot",
-        opcionesHorarios
-      );
+      agregarMensaje(`Horarios disponibles para ${lab.nombre}:\n\n¿Qué horario prefieres?`, "bot", opcionesHorarios);
       setEstado({ paso: "reserva_horario", datos: { ...datos, lab } });
-    } else if (paso === "reserva_horario") {
+    },
+    reserva_horario: async (mensaje, datos) => {
       const [hora_inicio, hora_fin] = mensaje.split("-");
-      setEstado({
-        paso: "reserva_practica",
-        datos: {
-          ...datos,
-          hora_inicio: hora_inicio.trim(),
-          hora_fin: hora_fin.trim(),
-        },
-      });
+      setEstado({ paso: "reserva_practica", datos: { ...datos, hora_inicio: hora_inicio.trim(), hora_fin: hora_fin.trim() } });
       agregarMensaje("¿Qué tipo de práctica se realizará?", "bot");
-    } else if (paso === "reserva_practica") {
-      setEstado({
-        paso: "reserva_materiales",
-        datos: { ...datos, practice_type: mensaje },
-      });
+    },
+    reserva_practica: async (mensaje, datos) => {
+      setEstado({ paso: "reserva_materiales", datos: { ...datos, practice_type: mensaje } });
       agregarMensaje("¿Qué materiales se usarán?", "bot");
-    } else if (paso === "reserva_materiales") {
-      setEstado({
-        paso: "reserva_estudiantes_archivo",
-        datos: { ...datos, materials: mensaje },
-      });
+    },
+    reserva_materiales: async (mensaje, datos) => {
+      setEstado({ paso: "reserva_estudiantes_archivo", datos: { ...datos, materials: mensaje } });
       agregarMensaje("Por favor carga el archivo (CSV, PDF o Excel) con la lista de estudiantes para finalizar tu reserva.", "bot");
-    } else if (paso === "reserva_estudiantes_archivo") {
-      // Este paso se maneja ahora a través de handleFileChange
-      return;
-    } else if (paso === "reserva_estudiantes") {
-      // Paso antiguo, mantenido por compatibilidad si es necesario, pero redireccionado
+    },
+    reserva_estudiantes_archivo: async () => { return; },
+    reserva_estudiantes: async (mensaje, datos) => {
       const num_students = parseInt(mensaje);
-
-      if (isNaN(num_students) || num_students <= 0) {
-        agregarMensaje(
-          "Por favor ingresa un número válido de estudiantes.",
-          "bot",
-        );
-        return;
-      }
+      if (isNaN(num_students) || num_students <= 0) return agregarMensaje("Por favor ingresa un número válido de estudiantes.", "bot");
       try {
         const res = await crearReservacion({
-          laboratorio_id: datos.lab.id,
-          usuario_id: usuario.id,
-          fecha: datos.fecha,
-          hora_inicio: datos.hora_inicio,
-          hora_fin: datos.hora_fin,
-          practice_type: datos.practice_type,
-          materials: datos.materials,
-          num_students,
+          laboratorio_id: datos.lab.id, usuario_id: usuario.id, fecha: datos.fecha, hora_inicio: datos.hora_inicio,
+          hora_fin: datos.hora_fin, practice_type: datos.practice_type, materials: datos.materials, num_students
         });
         if (res.data.success) {
-          agregarMensaje(
-            "🎉 ¡Tu reserva se ha creado exitosamente!",
-            "bot",
-            null,
-            {
-              id: res.data.reservacion.id,
-              laboratorio: datos.lab.nombre,
-              fecha: datos.fecha,
-              horario: `${datos.hora_inicio} - ${datos.hora_fin}`,
-              practica: datos.practice_type,
-              estudiantes: num_students
-            }
-          );
+          toast.success("Reserva creada existosamente");
+          agregarMensaje("🎉 ¡Tu reserva se ha creado exitosamente!", "bot", null, {
+            id: res.data.reservacion.id, laboratorio: datos.lab.nombre, fecha: datos.fecha, horario: `${datos.hora_inicio} - ${datos.hora_fin}`, practica: datos.practice_type, estudiantes: num_students
+          });
         }
       } catch (err) {
-        console.error(err);
-        if (err.response?.status === 409) {
-          agregarMensaje(`❌ ${err.response.data.message}`, "bot");
-        } else {
-          agregarMensaje("❌ Error al crear la reserva. Por favor intenta de nuevo.", "bot");
-        }
+        if (err.response?.status === 409) agregarMensaje(`❌ ${err.response.data.message}`, "bot");
+        else agregarMensaje("❌ Error al crear la reserva. Por favor intenta de nuevo.", "bot");
       }
       setEstado({ paso: "ninguno", datos: {} });
-    } else {
+    },
+    ninguno: async (mensaje) => {
       const msg = mensaje.toLowerCase();
       if (msg.includes("laboratorio") || msg.includes("labs")) {
-        const lista = laboratorios
-          .map((l) => `• ${l.nombre} (capacidad: ${l.capacidad})`)
-          .join("\n");
+        const lista = laboratorios.map((l) => `• ${l.nombre} (capacidad: ${l.capacidad})`).join("\n");
         agregarMensaje(`Los laboratorios disponibles son:\n${lista}`, "bot");
-      } else if (
-        msg.includes("hola") ||
-        msg.includes("buenos") ||
-        msg.includes("buenas")
-      ) {
-        agregarMensaje(
-          `¡Hola ${usuario?.nombre}! ¿En qué te puedo ayudar hoy?`,
-          "bot",
-        );
+      } else if (msg.includes("hola") || msg.includes("buenos") || msg.includes("buenas")) {
+        agregarMensaje(`¡Hola ${usuario?.nombre}! ¿En qué te puedo ayudar hoy?`, "bot");
       } else {
-        agregarMensaje(
-          "Puedes preguntarme sobre:\n• Laboratorios disponibles\n• Consultar disponibilidad\n• Reservar laboratorio",
-          "bot",
-        );
+        agregarMensaje("Puedes preguntarme sobre:\n• Laboratorios disponibles\n• Consultar disponibilidad\n• Reservar laboratorio", "bot");
       }
     }
+  };
+
+  const manejarPaso = async (mensaje) => {
+    const { paso, datos } = estado;
+    const handler = pasosHandler[paso] || pasosHandler.ninguno;
+    await handler(mensaje, datos);
   };
 
   const handleEnviar = () => {

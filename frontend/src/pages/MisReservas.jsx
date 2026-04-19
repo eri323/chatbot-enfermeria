@@ -52,7 +52,17 @@ export default function MisReservas({ usuario }) {
                     <p className="text-sm text-gray-600">📅 {r.fecha}</p>
                     <p className="text-sm text-gray-600">⏰ {r.hora_inicio} - {r.hora_fin}</p>
                     <p className="text-sm text-gray-600">🧪 {r.practice_type}</p>
-                    <p className="text-sm text-gray-600">👥 {r.num_students} estudiantes</p>
+                    {r.num_students && <p className="text-sm text-gray-600">👥 {r.num_students} estudiantes</p>}
+                    {r.lista_estudiantes && (
+                        <a 
+                            href={r.lista_estudiantes} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline mt-1 font-medium"
+                        >
+                            📎 Ver lista de estudiantes
+                        </a>
+                    )}
                     {r.usuario && <p className="text-sm text-gray-500 mt-1">👤 Reservado por: {r.usuario}</p>}
                 </div>
                 {isActiva && ['admin', 'jefe_enfermeria'].includes(usuario.rol_nombre) && (
