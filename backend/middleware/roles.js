@@ -1,0 +1,19 @@
+const ROLES = Object.freeze({
+    ADMIN: 1,
+    DOCENTE: 2,
+    JEFE_ENFERMERIA: 3,
+});
+
+const PUEDEN_RESERVAR = [ROLES.ADMIN, ROLES.DOCENTE, ROLES.JEFE_ENFERMERIA];
+const PUEDEN_VER_TODAS = [ROLES.ADMIN, ROLES.JEFE_ENFERMERIA];
+const PUEDEN_CANCELAR = [ROLES.ADMIN, ROLES.JEFE_ENFERMERIA];
+
+const esGestor = (rol_id) => PUEDEN_VER_TODAS.includes(rol_id);
+
+module.exports = {
+    ROLES,
+    PUEDEN_RESERVAR,
+    PUEDEN_VER_TODAS,
+    PUEDEN_CANCELAR,
+    esGestor,
+};

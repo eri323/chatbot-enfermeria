@@ -1,15 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
-const { verificarToken } = require('../middleware/auth');
+const { verificarToken, verificarPermiso } = require('../middleware/auth');
+const { ROLES } = require('../middleware/roles');
 
-router.use(verificarToken); 
+router.use(verificarToken);
 router.get('/', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM laboratorios WHERE activo = true');
         res.json({ success: true, laboratorios: result.rows });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        console.error('[laboratorios]', error);
+        res.status(500).json({ success: false, message: 'No se pudo procesar la solicitud.' });
     }
 });
 
@@ -21,12 +23,13 @@ router.get('/:id', async (req, res) => {
         }
         res.json({ success: true, laboratorio: result.rows[0] });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        console.error('[laboratorios]', error);
+        res.status(500).json({ success: false, message: 'No se pudo procesar la solicitud.' });
     }
 });
 
 
-router.post('/', async (req, res) => {
+router.post('/', verificarPermiso([ROLES.ADMIN]), async (req, res) => {
     const { nombre, capacidad, descripcion, equipos } = req.body;
     try {
         const result = await pool.query(
@@ -35,7 +38,8 @@ router.post('/', async (req, res) => {
         );
         res.json({ success: true, laboratorio: result.rows[0] });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        console.error('[laboratorios]', error);
+        res.status(500).json({ success: false, message: 'No se pudo procesar la solicitud.' });
     }
 });
 

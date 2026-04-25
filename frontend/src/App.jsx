@@ -30,8 +30,9 @@ export default function App() {
     };
 
     const handleLogout = () => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("usuario");
+        Object.keys(localStorage)
+            .filter((k) => k === "token" || k === "usuario" || k.startsWith("chat_"))
+            .forEach((k) => localStorage.removeItem(k));
         setUsuario(null);
     };
 

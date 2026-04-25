@@ -1,4 +1,5 @@
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const API = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
@@ -12,20 +13,28 @@ API.interceptors.request.use((config) => {
     return config;
 });
 
-import toast from 'react-hot-toast';
+const limpiarSesion = () => {
+    Object.keys(localStorage)
+        .filter((k) => k === 'token' || k === 'usuario' || k.startsWith('chat_'))
+        .forEach((k) => localStorage.removeItem(k));
+};
 
 API.interceptors.response.use(
     (response) => response,
     (error) => {
+        const url = error.config?.url ?? '';
+        const esLogin = url.includes('/auth/login') || url.includes('/auth/registro');
+
         if (!error.response) {
-            toast.error("Error de conexión con el servidor. Verifica tu red.");
+            toast.error('Error de conexión con el servidor. Verifica tu red.');
         } else if (error.response.status >= 500) {
-            toast.error("Error interno del servidor. Intenta de nuevo más tarde.");
-        } else if (error.response.status === 401) {
-            // No hacer toast para 401 si se maneja localmente, o sí:
-            if(window.location.pathname !== "/") {
-                toast.error("Tu sesión ha expirado o no estás autorizado.");
-            }
+            toast.error('Error interno del servidor. Intenta de nuevo más tarde.');
+        } else if (error.response.status === 401 && !esLogin) {
+            // Sesión inválida o expirada → cerrar sesión y volver a login
+            limpiarSesion();
+            toast.error('Tu sesión ha expirado. Inicia sesión nuevamente.');
+            // Recarga suave: App.jsx leerá localStorage vacío y mostrará Login
+            setTimeout(() => window.location.reload(), 600);
         }
         return Promise.reject(error);
     }

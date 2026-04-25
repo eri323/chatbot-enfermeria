@@ -88,15 +88,18 @@ export default function Chatbot({ usuario }) {
   }, [estado]);
 
   useEffect(() => {
-    // Escuchar cambios en tiempo real para avisar si algo cambia usando estadoRef
+    // Escuchar cambios en tiempo real (INSERT y UPDATE para incluir cancelaciones)
     const channel = supabase
       .channel("chatbot_updates")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "reservaciones" },
-        () => {
-          if (estadoRef.current.paso !== "ninguno") {
+        { event: "*", schema: "public", table: "reservaciones" },
+        (payload) => {
+          if (estadoRef.current.paso === "ninguno") return;
+          if (payload.eventType === "INSERT") {
             agregarMensaje("📢 Se acaba de confirmar una nueva reserva. Verifica la disponibilidad si el horario que buscas ya no aparece.", "bot");
+          } else if (payload.eventType === "UPDATE" && payload.new?.estado === "cancelada") {
+            agregarMensaje("🔓 Una reserva fue cancelada — podría liberarse un horario que estabas considerando.", "bot");
           }
         }
       )
@@ -232,7 +235,7 @@ export default function Chatbot({ usuario }) {
           hora_fin: datos.hora_fin, practice_type: datos.practice_type, materials: datos.materials, num_students
         });
         if (res.data.success) {
-          toast.success("Reserva creada existosamente");
+          toast.success("Reserva creada exitosamente");
           agregarMensaje("🎉 ¡Tu reserva se ha creado exitosamente!", "bot", null, {
             id: res.data.reservacion.id, laboratorio: datos.lab.nombre, fecha: datos.fecha, horario: `${datos.hora_inicio} - ${datos.hora_fin}`, practica: datos.practice_type, estudiantes: num_students
           });
@@ -262,16 +265,17 @@ export default function Chatbot({ usuario }) {
     await handler(mensaje, datos);
   };
 
-  const handleEnviar = () => {
-    if (!input.trim()) return;
-    agregarMensaje(input, "user");
-    manejarPaso(input);
+  const handleEnviar = async () => {
+    const valor = input.trim();
+    if (!valor) return;
+    agregarMensaje(valor, "user");
     setInput("");
+    await manejarPaso(valor);
   };
 
-  const handleOpcionClick = (opcion) => {
+  const handleOpcionClick = async (opcion) => {
     agregarMensaje(opcion, "user");
-    manejarPaso(opcion);
+    await manejarPaso(opcion);
   };
 
   const handleFileChange = async (e) => {
@@ -447,7 +451,7 @@ export default function Chatbot({ usuario }) {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && !esperandoOpcion && handleEnviar()}
+            onKeyDown={(e) => e.key === "Enter" && !esperandoOpcion && handleEnviar()}
             placeholder={esperandoOpcion ? "Por favor selecciona una opción arriba..." : "Escribe tu mensaje..."}
             disabled={esperandoOpcion}
             className={`flex-1 border border-gray-200 rounded-full px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-inner ${esperandoOpcion ? "bg-gray-100 cursor-not-allowed opacity-70" : "bg-gray-50"}`}

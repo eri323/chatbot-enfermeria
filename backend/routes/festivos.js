@@ -10,7 +10,8 @@ router.get('/', async (req, res) => {
         const result = await pool.query('SELECT * FROM festivos ORDER BY fecha');
         res.json({ success: true, festivos: result.rows });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        console.error('[festivos]', error);
+        res.status(500).json({ success: false, message: 'No se pudo obtener la información de festivos.' });
     }
 });
 
@@ -23,7 +24,8 @@ router.get('/verificar/:fecha', async (req, res) => {
         );
         res.json({ success: true, esFestivo: result.rows.length > 0 });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        console.error('[festivos]', error);
+        res.status(500).json({ success: false, message: 'No se pudo obtener la información de festivos.' });
     }
 });
 

@@ -1,13 +1,28 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const dotenv = require('dotenv');
 
 dotenv.config();
 
 const app = express();
-app.use(cors());
-app.use(express.json());
-app.use('/uploads', express.static('uploads'));
+
+// Whitelist de orígenes (CORS_ORIGIN puede ser CSV; por defecto Vite dev/preview)
+const allowedOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173,http://localhost:4173')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+app.use(helmet());
+app.use(cors({
+    origin: (origin, cb) => {
+        // permitir requests sin origin (curl, healthchecks)
+        if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+        return cb(new Error(`Origin no permitido: ${origin}`));
+    },
+    credentials: true,
+}));
+app.use(express.json({ limit: '1mb' }));
 
 
 const authRoutes = require('./routes/auth');
@@ -27,6 +42,18 @@ app.use('/api/calendario', calendarioRoutes);
 
 app.get('/', (req, res) => {
     res.json({ mensaje: 'Backend Chatbot Enfermería funcionando ✅' });
+});
+
+// Error handler central — evita filtrar detalles internos al cliente
+app.use((err, req, res, next) => {
+    console.error('[ERROR]', err);
+    if (err && err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ success: false, message: 'Archivo demasiado grande.' });
+    }
+    if (err && /Origin no permitido/.test(err.message)) {
+        return res.status(403).json({ success: false, message: 'Origen no permitido.' });
+    }
+    res.status(500).json({ success: false, message: 'Error interno del servidor.' });
 });
 
 const PORT = process.env.PORT || 3000;

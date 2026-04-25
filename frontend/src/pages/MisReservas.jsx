@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import toast from "react-hot-toast";
 import { getReservacionesUsuario, cancelarReservacion, getReservaciones } from "../services/api";
 
 export default function MisReservas({ usuario }) {
@@ -21,15 +22,40 @@ export default function MisReservas({ usuario }) {
         cargarReservas();
     }, [cargarReservas]);
 
-    const handleCancelar = async (id) => {
-        if (!confirm("¿Estás seguro de cancelar esta reserva?")) return;
+    const ejecutarCancelar = async (id) => {
         try {
-            await cancelarReservacion(id, { cancelada_por: usuario.id });
+            await cancelarReservacion(id, {});
+            toast.success("Reserva cancelada");
             cargarReservas();
         } catch (err) {
             console.error(err);
-            alert("Error al cancelar la reserva");
+            toast.error("No se pudo cancelar la reserva");
         }
+    };
+
+    const handleCancelar = (id) => {
+        toast((t) => (
+            <div className="flex flex-col gap-2">
+                <p className="text-sm font-semibold text-gray-800">¿Cancelar esta reserva?</p>
+                <div className="flex gap-2 justify-end">
+                    <button
+                        onClick={() => toast.dismiss(t.id)}
+                        className="text-xs px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium"
+                    >
+                        No
+                    </button>
+                    <button
+                        onClick={() => {
+                            toast.dismiss(t.id);
+                            ejecutarCancelar(id);
+                        }}
+                        className="text-xs px-3 py-1 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium"
+                    >
+                        Sí, cancelar
+                    </button>
+                </div>
+            </div>
+        ), { duration: 8000 });
     };
 
     if (loading) return (

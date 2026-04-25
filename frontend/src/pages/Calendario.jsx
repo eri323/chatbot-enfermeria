@@ -136,14 +136,12 @@ export default function Calendario() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "reservaciones" },
-        (payload) => {
-          console.log("🔔 Cambio detectado en tiempo real:", payload);
+        () => {
           fetchReservas();
         }
       )
       .subscribe((status, err) => {
-        console.log("📡 Estado de suscripción Realtime:", status);
-        if (err) console.error("❌ Error en suscripción Realtime:", err);
+        if (err) console.error("Error en suscripción Realtime:", err);
       });
 
     return () => {
@@ -198,10 +196,11 @@ export default function Calendario() {
         const slotStart = new Date(`${dateStr}T${h.inicio}:00`);
         const slotEnd = new Date(`${dateStr}T${h.fin}:00`);
 
+        // Solape real: una reserva ocupa el slot si overlapsea con él en cualquier punto
         const isReserved = reservasLab.some((r) => {
-          const rStart = new Date(r.fecha_inicio);
-          // Asignamos que si el punto de partida coincide, el bloque está ocupado
-          return rStart.getTime() === slotStart.getTime();
+          const rStart = new Date(r.fecha_inicio).getTime();
+          const rEnd = new Date(r.fecha_fin).getTime();
+          return rStart < slotEnd.getTime() && rEnd > slotStart.getTime();
         });
 
         if (!isReserved) {
